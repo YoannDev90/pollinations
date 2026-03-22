@@ -1,17 +1,17 @@
 // biome-ignore-all lint/a11y/useKeyWithClickEvents: Component has global keyboard navigation via arrow keys
 // biome-ignore-all lint/a11y/noStaticElementInteractions: Interactive elements handled via global keydown
-import { useCallback, useEffect, useMemo, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LAYOUT } from "../../copy/content/layout";
 import { useAuth } from "../../hooks/useAuth";
 import {
     type EntryContent,
+    type EntryContentRequest,
     type PRContent,
     type TimelineEntry,
     useDiaryData,
 } from "../../hooks/useDiaryData";
 import { usePrettify } from "../../hooks/usePrettify";
+import { LazyMarkdownGfm } from "./ui/lazy-markdown";
 
 const MOBILE_BP = 580;
 
@@ -25,7 +25,7 @@ const impactEmoji: Record<string, string> = {
 };
 
 const chipBase =
-    "inline-flex items-center px-2 py-0.5 text-[11px] font-mono font-medium rounded-sub-card cursor-pointer transition-all duration-300 ease-in-out";
+    "inline-flex items-center px-2 py-0.5 text-[11px] font-mono font-medium rounded-sub-card cursor-pointer transition duration-300 ease-in-out";
 const chipColors = [
     "border-primary-strong shadow-[1px_1px_0_rgb(var(--primary-strong)_/_0.3)]",
     "border-secondary-strong shadow-[1px_1px_0_rgb(var(--secondary-strong)_/_0.3)]",
@@ -54,6 +54,10 @@ export function BuildDiary() {
     const [entryContent, setEntryContent] = useState<EntryContent | null>(null);
     const [prContent, setPrContent] = useState<PRContent | null>(null);
     const [imgError, setImgError] = useState(false);
+    // Crossfade image state
+    const [shownImageUrl, setShownImageUrl] = useState("");
+    const [prevImageUrl, setPrevImageUrl] = useState("");
+    const [imgFading, setImgFading] = useState(false);
     // Smooth text transition state
     const [textVisible, setTextVisible] = useState(true);
     const [shownTitle, setShownTitle] = useState("");
@@ -78,29 +82,44 @@ export function BuildDiary() {
     const maxY = entry ? entry.prNumbers.length : 0;
     const onPR = y > 0 && y <= maxY;
 
-    // Fetch entry content when x changes
+    // Compute image URL early so the crossfade effect (a hook) can reference it unconditionally
+    const currentImageUrl = onPR
+        ? prContent?.imageUrl || ""
+        : entry && entry.images.length > 0
+          ? entry.images[
+                entry.date.charCodeAt(entry.date.length - 1) %
+                    entry.images.length
+            ]?.url || ""
+          : "";
     const entryDate = entry?.date;
     const entryType = entry?.type;
-    const entryPrNumbers = entry?.prNumbers;
+    const entrySummaryUrl = entry?.summaryUrl;
+
+    // Fetch entry content when the selected entry changes
+    // biome-ignore lint/correctness/useExhaustiveDependencies: prRefs excluded intentionally — it's an object ref that changes when timeline is enriched by getEntryContent, causing an infinite loop
     useEffect(() => {
-        if (!entryDate || !entryType || !entryPrNumbers) return;
+        if (!entryDate || !entryType) return;
+        const request: EntryContentRequest = {
+            date: entryDate,
+            type: entryType,
+            summaryUrl: entrySummaryUrl,
+            prRefs: entry?.prRefs ?? [],
+        };
         setEntryContent(null);
         setPrContent(null);
-        getEntryContent(entryDate, entryType, entryPrNumbers).then(
-            setEntryContent,
-        );
-    }, [entryDate, entryType, entryPrNumbers, getEntryContent]);
+        getEntryContent(request).then(setEntryContent);
+    }, [entryDate, entryType, entrySummaryUrl, getEntryContent]);
 
     // Fetch PR content when y changes
-    const currentPrNum = entry?.prNumbers[y - 1];
+    const currentPrRef = entry?.prRefs[y - 1];
     useEffect(() => {
-        if (!entryDate || !onPR || !currentPrNum) {
+        if (!onPR || !currentPrRef) {
             setPrContent(null);
             return;
         }
         setPrContent(null);
-        getPRContent(entryDate, currentPrNum).then(setPrContent);
-    }, [entryDate, currentPrNum, onPR, getPRContent]);
+        getPRContent(currentPrRef.date, currentPrRef.number).then(setPrContent);
+    }, [currentPrRef, onPR, getPRContent]);
 
     // Reset image error on navigation
     // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally re-run when x/y change
@@ -108,21 +127,37 @@ export function BuildDiary() {
         setImgError(false);
     }, [x, y]);
 
-    // Auto-cycle through day overview + PRs
-    const [autoCycling, setAutoCycling] = useState(true);
+    // Crossfade: when image URL changes, keep old one underneath while new fades in
+    const FADE_MS = 600;
     useEffect(() => {
-        if (!autoCycling || maxY === 0) return;
+        if (!currentImageUrl || currentImageUrl === shownImageUrl) return;
+        setPrevImageUrl(shownImageUrl);
+        setShownImageUrl(currentImageUrl);
+        setImgFading(false); // new image starts transparent
+        // next frame: trigger transition to opaque
+        const raf = requestAnimationFrame(() => setImgFading(true));
+        const t = setTimeout(() => {
+            setPrevImageUrl("");
+        }, FADE_MS);
+        return () => {
+            cancelAnimationFrame(raf);
+            clearTimeout(t);
+        };
+    }, [currentImageUrl, shownImageUrl]);
+
+    // Auto-cycle through day overview + PRs, pause 15s on user click
+    const pauseUntil = useRef(0);
+    const pauseAutoCycle = useCallback(() => {
+        pauseUntil.current = Date.now() + 15000;
+    }, []);
+    useEffect(() => {
+        if (maxY === 0) return;
         const interval = setInterval(() => {
+            if (Date.now() < pauseUntil.current) return;
             setY((prev) => (prev + 1) % (maxY + 1));
         }, 5000);
         return () => clearInterval(interval);
-    }, [autoCycling, maxY]);
-
-    // Stop auto-cycling on manual interaction, restart on day change
-    // biome-ignore lint/correctness/useExhaustiveDependencies: restart auto-cycle when day changes
-    useEffect(() => {
-        setAutoCycling(true);
-    }, [x]);
+    }, [maxY]);
 
     // Navigation — only left/right now
     const go = useCallback(
@@ -178,7 +213,8 @@ export function BuildDiary() {
         : entryContent?.title || LAYOUT.loadingEllipsis;
     const displaySummary = prettifiedSummary[0]?.text || rawSummary;
 
-    // Smooth text transition: fade out → swap content → fade in
+    // Smooth text transition: fade+slide out → swap content → fade+slide in
+    const TEXT_FADE_MS = 400;
     useEffect(() => {
         if (!displayTitle && !displaySummary) return;
         setTextVisible(false);
@@ -186,7 +222,7 @@ export function BuildDiary() {
             setShownTitle(displayTitle);
             setShownSummary(displaySummary);
             setTextVisible(true);
-        }, 180);
+        }, TEXT_FADE_MS);
         return () => clearTimeout(t);
     }, [displayTitle, displaySummary]);
 
@@ -203,38 +239,48 @@ export function BuildDiary() {
         return null;
     }
 
-    // Current image
-    const currentImageUrl = onPR
-        ? prContent?.imageUrl || ""
-        : entry.images.length > 0
-          ? entry.images[
-                entry.date.charCodeAt(entry.date.length - 1) %
-                    entry.images.length
-            ]?.url || ""
-          : "";
-
     // Image alt text
     const imageAlt = onPR
         ? `PR #${entry.prNumbers[y - 1]}`
         : `${entry.dayName} ${entry.dateLabel}`;
 
-    // Image area — crossfade: new image fades in on top, old stays underneath
+    // Image area — true crossfade: old fades out while new fades in
     const ImageBox = (
         <div className="w-full aspect-square bg-white shrink-0 relative overflow-hidden">
-            {currentImageUrl && !imgError && (
+            {/* Previous image fades out */}
+            {prevImageUrl && !imgError && (
                 <img
-                    key={currentImageUrl}
-                    src={currentImageUrl}
+                    key={`prev-${prevImageUrl}`}
+                    src={prevImageUrl}
+                    alt={imageAlt}
+                    className="absolute inset-0 w-full h-full object-cover"
+                    style={{
+                        opacity: 1,
+                        transition: `opacity ${FADE_MS}ms ease-in-out`,
+                    }}
+                />
+            )}
+            {/* Current image fades in */}
+            {shownImageUrl && !imgError && (
+                <img
+                    key={`curr-${shownImageUrl}`}
+                    src={shownImageUrl}
                     alt={imageAlt}
                     onError={() => setImgError(true)}
-                    className="absolute inset-0 w-full h-full object-cover animate-[fade-in_0.7s_ease-in-out]"
+                    className="absolute inset-0 w-full h-full object-cover"
+                    style={{
+                        opacity: imgFading ? 1 : 0,
+                        transition: `opacity ${FADE_MS}ms ease-in-out`,
+                    }}
                 />
             )}
         </div>
     );
 
-    // Date heading label — same format for both day and week entries
-    const dateLabel = `${entry.dayName} \u00B7 ${entry.dateLabel}`;
+    const dateLabel =
+        entry.type === "week"
+            ? `Week \u00B7 ${entry.dateLabel}`
+            : `${entry.dayName} \u00B7 ${entry.dateLabel}`;
 
     const TextPanel = (
         <div
@@ -246,7 +292,7 @@ export function BuildDiary() {
             <div className="self-start inline-flex items-center gap-2">
                 <span
                     onClick={() => go("left")}
-                    className={`font-headline text-sm select-none flex items-center justify-center w-8 h-8 rounded-sub-card transition-all duration-200 ${
+                    className={`font-headline text-sm select-none flex items-center justify-center w-8 h-8 rounded-sub-card transition duration-200 ${
                         x > 0
                             ? "text-muted cursor-pointer bg-white/60 border-r-2 border-b-2 border-border-subtle shadow-[1px_1px_0_rgb(var(--dark)_/_0.08)] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
                             : "text-dark/15 cursor-default bg-white/30"
@@ -255,17 +301,17 @@ export function BuildDiary() {
                     &#x25C0;
                 </span>
                 <span
-                    className={`font-headline inline-flex items-center justify-center py-2 text-sm font-black uppercase tracking-wider rounded-tag cursor-pointer transition-all duration-300 ease-in-out min-w-[220px] ${!onPR ? `${chipActiveColors[x % chipActiveColors.length]} font-black` : chipInactiveDefault}`}
+                    className={`font-headline inline-flex items-center justify-center py-2 text-sm font-black uppercase tracking-wider rounded-tag cursor-pointer transition duration-300 ease-in-out min-w-[220px] ${!onPR ? `${chipActiveColors[x % chipActiveColors.length]} font-black` : chipInactiveDefault}`}
                     onClick={() => {
                         setY(0);
-                        setAutoCycling(false);
+                        pauseAutoCycle();
                     }}
                 >
                     {dateLabel}
                 </span>
                 <span
                     onClick={() => go("right")}
-                    className={`font-headline text-sm select-none flex items-center justify-center w-8 h-8 rounded-sub-card transition-all duration-200 ${
+                    className={`font-headline text-sm select-none flex items-center justify-center w-8 h-8 rounded-sub-card transition duration-200 ${
                         x < timeline.length - 1
                             ? "text-muted cursor-pointer bg-white/60 border-r-2 border-b-2 border-border-subtle shadow-[1px_1px_0_rgb(var(--dark)_/_0.08)] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
                             : "text-dark/15 cursor-default bg-white/30"
@@ -284,7 +330,7 @@ export function BuildDiary() {
                             className={`${chipBase} ${y === i + 1 ? chipActiveColors[i % chipActiveColors.length] : `${chipInactive} ${chipColors[i % chipColors.length]}`}`}
                             onClick={() => {
                                 setY(i + 1);
-                                setAutoCycling(false);
+                                pauseAutoCycle();
                             }}
                         >
                             #{pr}
@@ -295,10 +341,15 @@ export function BuildDiary() {
 
             <div className="mb-3.5" />
 
-            {/* Title + Summary + metadata — smooth fade transition */}
+            {/* Title + Summary + metadata — smooth fade+slide transition */}
             <div
-                className="transition-opacity duration-200 ease-in-out"
-                style={{ opacity: textVisible ? 1 : 0 }}
+                style={{
+                    opacity: textVisible ? 1 : 0,
+                    transform: textVisible
+                        ? "translateY(0)"
+                        : "translateY(6px)",
+                    transition: `opacity ${TEXT_FADE_MS}ms ease-in-out, transform ${TEXT_FADE_MS}ms ease-in-out`,
+                }}
             >
                 {/* Title */}
                 <div className="font-headline text-xs text-dark leading-tight mb-3 font-bold">
@@ -307,8 +358,7 @@ export function BuildDiary() {
 
                 {/* Summary */}
                 <div className="text-sm text-muted leading-relaxed overflow-hidden line-clamp-[8]">
-                    <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
+                    <LazyMarkdownGfm
                         components={{
                             p: ({ node, ...props }) => (
                                 <p {...props} className="mb-1 last:mb-0" />
@@ -343,7 +393,7 @@ export function BuildDiary() {
                         }}
                     >
                         {shownSummary || rawSummary}
-                    </ReactMarkdown>
+                    </LazyMarkdownGfm>
                 </div>
 
                 {/* PR metadata */}
@@ -351,13 +401,6 @@ export function BuildDiary() {
                     <div className="text-xs text-subtle mt-3.5">
                         {impactEmoji[prContent.impact] || "\u{1F4E6}"}{" "}
                         {prContent.impact} &middot; @{prContent.author}
-                    </div>
-                )}
-
-                {/* Weekly DNA quote */}
-                {entry.type === "week" && entryContent?.dna && !onPR && (
-                    <div className="mt-4 px-3 py-2 border-l-2 border-tan text-muted text-[13px] italic leading-normal">
-                        &ldquo;{entryContent.dna}&rdquo;
                     </div>
                 )}
             </div>

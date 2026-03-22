@@ -2,8 +2,13 @@ import { type Context, Hono } from "hono";
 import { proxy } from "hono/proxy";
 import { resolver as baseResolver, describeRoute } from "hono-openapi";
 import { type AuthVariables, auth } from "@/middleware/auth.ts";
-import { type BalanceVariables, balance } from "@/middleware/balance.ts";
+import {
+    type BalanceVariables,
+    balance,
+    getAvailableBalance,
+} from "@/middleware/balance.ts";
 import { imageCache } from "@/middleware/image-cache.ts";
+import type { LoggerVariables } from "@/middleware/logger.ts";
 import type { ModelVariables } from "@/middleware/model.ts";
 import { resolveModel } from "@/middleware/model.ts";
 import { frontendKeyRateLimit } from "@/middleware/rate-limit-durable.ts";
@@ -47,7 +52,8 @@ import {
 } from "@/schemas/openai.ts";
 import { GenerateTextRequestQueryParamsSchema } from "@/schemas/text.ts";
 import { errorResponseDescriptions } from "@/utils/api-docs.ts";
-import { generateMusic, generateSpeech, generateSunoMusic } from "./audio.ts";
+import { getEstimatedPrice, getModelStats } from "@/utils/model-stats.ts";
+import { generateMusic, generateSpeech } from "./audio.ts";
 
 // Build dynamic model lists from registry for use in API descriptions
 const imageModelNames = Object.entries(IMAGE_SERVICES)
@@ -76,7 +82,7 @@ const imageVideoHandlers = factory.createHandlers(
         await c.var.auth.requireAuthorization();
         c.var.auth.requireModelAccess();
         c.var.auth.requireKeyBudget();
-        await checkBalance(c.var);
+        await checkBalance(c.var, c.env);
 
         // Get prompt from validated param (using :prompt{[\\s\\S]+} regex pattern)
         const promptParam = c.req.param("prompt") || "";
@@ -130,7 +136,7 @@ const chatCompletionHandlers = factory.createHandlers(
         // Use resolved model from middleware for the backend request
         const requestBody = await c.req.json();
         requestBody.model = c.var.model.resolved;
-        await checkBalance(c.var);
+        await checkBalance(c.var, c.env);
 
         const textServiceUrl =
             c.env.TEXT_SERVICE_URL || "https://text.pollinations.ai";
@@ -169,6 +175,18 @@ const chatCompletionHandlers = factory.createHandlers(
                 message: errorMessage,
                 requestUrl: targetUrl,
             });
+        }
+
+        // Validate streaming responses: if client requested stream but upstream
+        // returned non-SSE, throw rather than forwarding broken data.
+        if (c.var.track.streamRequested) {
+            const contentType = response.headers.get("content-type") || "";
+            if (!contentType.includes("text/event-stream")) {
+                throw new UpstreamError(502, {
+                    message: `Stream requested for model ${c.var.model.resolved} but upstream returned content-type: ${contentType}`,
+                    requestUrl: targetUrl,
+                });
+            }
         }
 
         // add content filter headers if not streaming
@@ -496,7 +514,7 @@ export const proxyRoutes = new Hono<Env>()
             await c.var.auth.requireAuthorization();
             c.var.auth.requireModelAccess();
             c.var.auth.requireKeyBudget();
-            await checkBalance(c.var);
+            await checkBalance(c.var, c.env);
 
             // Use resolved model from middleware
             const model = c.var.model.resolved;
@@ -717,22 +735,11 @@ export const proxyRoutes = new Hono<Env>()
         async (c) => {
             const log = c.get("log").getChild("generate");
             await c.var.auth.requireAuthorization();
-            await checkBalance(c.var);
+            await checkBalance(c.var, c.env);
 
             const text = decodeURIComponent(c.req.param("text"));
             const apiKey = (c.env as unknown as { ELEVENLABS_API_KEY: string })
                 .ELEVENLABS_API_KEY;
-
-            if (c.var.model.resolved === "suno") {
-                const airforceApiKey = (
-                    c.env as unknown as { AIRFORCE_API_KEY: string }
-                ).AIRFORCE_API_KEY;
-                return generateSunoMusic({
-                    prompt: text,
-                    apiKey: airforceApiKey,
-                    log,
-                });
-            }
 
             if (c.var.model.resolved === "elevenmusic") {
                 const { duration, instrumental } = c.req.valid(
@@ -940,16 +947,45 @@ export function contentFilterResultsToHeaders(
     return headers;
 }
 
-async function checkBalance({
-    auth,
-    balance,
-    model,
-}: AuthVariables & BalanceVariables & ModelVariables): Promise<void> {
+async function checkBalance(
+    vars: AuthVariables & BalanceVariables & ModelVariables & LoggerVariables,
+    env: CloudflareBindings,
+): Promise<void> {
+    const { auth, balance, model, log } = vars;
     if (!auth.user?.id) return;
 
     const serviceDefinition = getServiceDefinition(model.resolved);
     const isPaidOnly = serviceDefinition.paidOnly ?? false;
 
+    // Pre-check: reject if balance < estimated cost for this model
+    // getModelStats is cached in KV for 1hr, so this is cheap
+    const stats = await getModelStats(env.KV, log);
+    let estimatedCost = getEstimatedPrice(stats, model.resolved);
+
+    // Cap to guard against skewed Tinybird averages blocking users
+    if (estimatedCost > 5) {
+        log.warn(
+            "Estimated cost for {model} is suspiciously high ({cost}). Capping to 2.0",
+            {
+                model: model.resolved,
+                cost: estimatedCost,
+            },
+        );
+        estimatedCost = 2.0;
+    }
+
+    if (estimatedCost > 0) {
+        const userBalance = await balance.getBalance(auth.user.id);
+        const available = getAvailableBalance(userBalance, isPaidOnly);
+
+        if (available < estimatedCost) {
+            throw new HTTPException(402, {
+                message: `Insufficient balance. This model costs ~${estimatedCost.toFixed(4)} pollen per request, but your available balance is ${available.toFixed(4)}.`,
+            });
+        }
+    }
+
+    // Existing check: sets balanceCheckResult for downstream cost deduction
     if (isPaidOnly) {
         await balance.requirePaidBalance(
             auth.user.id,

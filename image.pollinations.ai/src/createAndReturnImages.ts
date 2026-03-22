@@ -7,9 +7,12 @@ import {
     fetchFromLeastBusyServer,
 } from "./availableServers.ts";
 import { HttpError } from "./httpError.ts";
-import { callAirforceImageAPI } from "./models/airforceModel.ts";
 import { callAzureFluxKontext } from "./models/azureFluxKontextModel.js";
 import { callFluxKleinAPI } from "./models/fluxKleinModel.ts";
+import {
+    callPrunaImageAPI,
+    callPrunaImageEditAPI,
+} from "./models/prunaModel.ts";
 import {
     callSeedream5API,
     callSeedreamAPI,
@@ -557,6 +560,8 @@ interface AzureGPTImageConfig {
     modelName: string;
 }
 
+const AZURE_GPTIMAGE_API_VERSION = "2025-04-01-preview";
+
 const AZURE_GPTIMAGE_CONFIGS: Record<string, AzureGPTImageConfig> = {
     gptimage: {
         apiKeyEnvVar: "AZURE_GPTIMAGE_1_MINI_API_KEY",
@@ -585,27 +590,28 @@ const callAzureGPTImageWithEndpoint = async (
     config: AzureGPTImageConfig = AZURE_GPTIMAGE_CONFIGS.gptimage,
 ): Promise<ImageGenerationResult> => {
     const apiKey = process.env[config.apiKeyEnvVar];
-    let endpoint = process.env[config.endpointEnvVar];
+    const baseEndpoint = process.env[config.endpointEnvVar];
 
-    if (!apiKey || !endpoint) {
+    if (!apiKey || !baseEndpoint) {
         throw new Error(
             `Azure API key or endpoint 1 not found in environment variables`,
         );
     }
 
+    // Strip any trailing path/query from the env var to get the base deployment URL
+    // Env may contain full URL (legacy) or just the base deployment path
+    const baseUrl = baseEndpoint.replace(/\/images\/.*$/, "");
+
     // Check if we have input images for edit mode
     const isEditMode = safeParams.image && safeParams.image.length > 0;
 
-    // GPT Image models support both generation and editing
-    // Edit API uses /images/edits endpoint with multipart/form-data
-    if (isEditMode) {
-        endpoint = endpoint.replace("/images/generations", "/images/edits");
-        logCloudflare(`Using Azure ${config.modelName} in edit mode (img2img)`);
-    } else {
-        logCloudflare(
-            `Using Azure ${config.modelName} in generation mode (text2img)`,
-        );
-    }
+    // Construct the full endpoint URL based on mode
+    let endpoint: string;
+    const path = isEditMode ? "images/edits" : "images/generations";
+    endpoint = `${baseUrl}/${path}?api-version=${AZURE_GPTIMAGE_API_VERSION}`;
+    logCloudflare(
+        `Using Azure ${config.modelName} in ${isEditMode ? "edit" : "generation"} mode`,
+    );
 
     // Map safeParams to Azure API parameters
     // GPT Image 1.5 only supports: 1024x1024 (1:1), 1024x1536 (2:3), 1536x1024 (3:2)
@@ -1120,20 +1126,38 @@ const generateImage = async (
             }
         }
 
-        case "flux-2-dev":
-        case "imagen-4":
-        case "grok-imagine":
-        case "dirtberry":
-        case "dirtberry-pro":
-            return await callAirforceImageAPI(
-                prompt,
-                safeParams,
-                progress,
-                requestId,
-                safeParams.model === "dirtberry-pro"
-                    ? "special-berry"
-                    : safeParams.model,
-            );
+        case "p-image": {
+            try {
+                return await callPrunaImageAPI(
+                    prompt,
+                    safeParams,
+                    progress,
+                    requestId,
+                );
+            } catch (error) {
+                logError("Pruna p-image generation failed:", error.message);
+                progress.updateBar(requestId, 100, "Error", error.message);
+                throw error;
+            }
+        }
+
+        case "p-image-edit": {
+            try {
+                return await callPrunaImageEditAPI(
+                    prompt,
+                    safeParams,
+                    progress,
+                    requestId,
+                );
+            } catch (error) {
+                logError(
+                    "Pruna p-image-edit generation failed:",
+                    error.message,
+                );
+                progress.updateBar(requestId, 100, "Error", error.message);
+                throw error;
+            }
+        }
 
         case "flux":
             progress.updateBar(

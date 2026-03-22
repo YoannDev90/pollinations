@@ -182,7 +182,7 @@ function generateLLMDoc(): string {
     lines.push("- duration (int, 1-10): Video duration in seconds");
     lines.push('- aspectRatio ("16:9"|"9:16"): Video only');
     lines.push(
-        "- audio (boolean, default: false): Video audio. wan/ltx-2 always have audio",
+        "- audio (boolean, default: false): Video audio. wan always has audio",
     );
     lines.push("");
 
@@ -1093,16 +1093,16 @@ export const createDocsRoutes = (apiRouter: Hono<Env>) => {
                             "",
                             "## Overview",
                             "",
-                            "| | Capability | Endpoint | Format |",
-                            "|---|---|---|---|",
-                            "| ✍️ | **Text Generation** | `POST /v1/chat/completions` | OpenAI-compatible |",
-                            "| ✍️ | **Simple Text** | `GET /text/{prompt}` | Plain text |",
-                            "| 🖼️ | **Image Generation** | `GET /image/{prompt}` | JPEG / PNG |",
-                            "| 🎬 | **Video Generation** | `GET /video/{prompt}` | MP4 |",
-                            "| 🔊 | **Text-to-Speech** | `GET /audio/{text}` | MP3 |",
-                            "| 🔊 | **Music Generation** | `GET /audio/{text}` | MP3 |",
-                            "| 🔊 | **Transcription** | `POST /v1/audio/transcriptions` | JSON |",
-                            "| 🤖 | **Model Discovery** | `GET /v1/models` | JSON |",
+                            "| Capability | Endpoint | Format |",
+                            "|---|---|---|",
+                            "| ✍️ **Text Generation** | `POST /v1/chat/completions` | OpenAI-compatible |",
+                            "| ✍️ **Simple Text** | `GET /text/{prompt}` | Plain text |",
+                            "| 🖼️ **Image Generation** | `GET /image/{prompt}` | JPEG / PNG |",
+                            "| 🎬 **Video Generation** | `GET /video/{prompt}` | MP4 |",
+                            "| 🔊 **Text-to-Speech** | `GET /audio/{text}` | MP3 |",
+                            "| 🔊 **Music Generation** | `GET /audio/{text}` | MP3 |",
+                            "| 🔊 **Transcription** | `POST /v1/audio/transcriptions` | JSON |",
+                            "| 🤖 **Model Discovery** | `GET /v1/models` | JSON |",
                             "",
                             "## Quick Start",
                             "",

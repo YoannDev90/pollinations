@@ -12,6 +12,9 @@ import {
     type CreateImageRequest,
 } from "@/schemas/openai.ts";
 
+// biome-ignore lint/suspicious/noExplicitAny: internal callback bridging typed proxy.ts and untyped Context.var
+type CheckBalanceFn = (vars: any, env: any) => Promise<void>;
+
 // --- Helpers ---
 
 const QUALITY_MAP: Record<string, string> = { standard: "medium", hd: "high" };
@@ -44,14 +47,11 @@ function imageResponse(
 }
 
 /** Auth + balance checks shared by both handlers. */
-async function requireAuthAndBalance(
-    c: Context,
-    checkBalance: (vars: unknown) => Promise<void>,
-) {
+async function requireAuthAndBalance(c: Context, checkBalance: CheckBalanceFn) {
     await c.var.auth.requireAuthorization();
     c.var.auth.requireModelAccess();
     c.var.auth.requireKeyBudget();
-    await checkBalance(c.var);
+    await checkBalance(c.var, c.env);
 }
 
 /** Build image service URL with core params (kept in URL for caching/logging). */
@@ -205,7 +205,7 @@ async function parseEditInput(c: Context): Promise<{
 // --- Exported handlers ---
 
 export function handleImageGeneration(
-    checkBalance: (vars: unknown) => Promise<void>,
+    checkBalance: CheckBalanceFn,
     proxyHeaders: (c: Context) => Record<string, string>,
 ) {
     return async (c: Context) => {
@@ -255,7 +255,7 @@ export function handleImageGeneration(
 }
 
 export function handleImageEdit(
-    checkBalance: (vars: unknown) => Promise<void>,
+    checkBalance: CheckBalanceFn,
     proxyHeaders: (c: Context) => Record<string, string>,
 ) {
     return async (c: Context) => {

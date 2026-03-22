@@ -122,8 +122,8 @@ const models: ModelDefinition[] = [
         ),
     },
     {
-        name: "gemini-3-pro-preview",
-        config: portkeyConfig["gemini-3-pro-preview"],
+        name: "gemini-3-pro-legacy",
+        config: portkeyConfig["gemini-3-pro-legacy"],
         transform: pipe(
             sanitizeToolSchemas(),
             createGeminiToolsTransform(["code_execution"]),
@@ -154,33 +154,12 @@ const models: ModelDefinition[] = [
         config: portkeyConfig["accounts/fireworks/models/minimax-m2p5"],
     },
     {
-        name: "nomnom",
-        config: portkeyConfig["nomnom"],
-    },
-    {
         name: "polly",
         config: portkeyConfig["polly"],
     },
     {
         name: "qwen-safety",
         config: portkeyConfig["Qwen3Guard-Gen-8B"],
-    },
-    {
-        name: "qwen-character",
-        config: portkeyConfig["qwen-character"],
-        transform: createSystemPromptTransform(BASE_PROMPTS.character),
-    },
-    {
-        name: "step-3.5-flash",
-        config: portkeyConfig["step-3.5-flash:free"],
-    },
-    {
-        name: "claude-airforce",
-        config: portkeyConfig["claude-sonnet-4.6"],
-    },
-    {
-        name: "openai-seraphyn",
-        config: portkeyConfig["seraphyn-gpt-5.4"],
     },
 ];
 

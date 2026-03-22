@@ -283,115 +283,50 @@ export const IMAGE_SERVICES = {
         inputModalities: ["text", "image"],
         outputModalities: ["image"],
     },
-    "imagen-4": {
-        aliases: ["imagen"],
-        modelId: "imagen-4",
-        provider: "airforce",
-        alpha: true,
-        cost: [
-            {
-                date: new Date("2026-02-07").getTime(),
-                completionImageTokens: 0.0025, // $0.0025 per image
-            },
-        ],
-        description: "Imagen 4 (api.airforce) - Google's latest image gen",
-        inputModalities: ["text"],
-        outputModalities: ["image"],
-    },
-    "flux-2-dev": {
-        aliases: ["flux-2", "flux2-dev"],
-        modelId: "flux-2-dev",
-        provider: "airforce",
-        alpha: true,
-        cost: [
-            {
-                date: new Date("2026-03-02").getTime(),
-                completionImageTokens: 0.001, // $0.001 per image
-            },
-        ],
-        description: "FLUX.2 Dev (api.airforce) - Flux 2 image generation",
-        inputModalities: ["text", "image"],
-        outputModalities: ["image"],
-    },
-    "grok-imagine": {
-        aliases: [],
-        modelId: "grok-imagine",
-        provider: "airforce",
-        alpha: true,
-        cost: [
-            {
-                date: new Date("2026-02-16").getTime(),
-                completionImageTokens: 0.0025, // $0.0025 per image
-            },
-        ],
-        description: "Grok Imagine (api.airforce) - xAI image gen",
-        inputModalities: ["text"],
-        outputModalities: ["image"],
-    },
-    "dirtberry": {
-        aliases: [],
-        modelId: "dirtberry",
-        provider: "airforce",
-        alpha: true,
-        cost: [
-            {
-                date: new Date("2026-03-09").getTime(),
-                completionImageTokens: 0.001, // ~free via api.airforce
-            },
-        ],
-        description:
-            "Dirtberry (api.airforce) - Quick realistic image generation",
-        inputModalities: ["text"],
-        outputModalities: ["image"],
-    },
-    "dirtberry-pro": {
-        aliases: ["special-berry"],
-        modelId: "special-berry",
-        provider: "airforce",
-        alpha: true,
+    "p-image": {
+        aliases: ["pruna-image", "pruna"],
+        modelId: "p-image",
+        provider: "pruna",
+        paidOnly: true,
         cost: [
             {
                 date: new Date("2026-03-13").getTime(),
-                completionImageTokens: 0.0015, // 1.5x dirtberry ($0.001)
+                completionImageTokens: 0.005, // $0.005 per image
             },
         ],
-        description:
-            "Dirtberry Pro (api.airforce) - High quality realism, pixel art & complex scenes",
+        description: "Pruna p-image - Fast text-to-image generation",
         inputModalities: ["text"],
         outputModalities: ["image"],
     },
-    "grok-video": {
-        aliases: ["grok-imagine-video"],
-        modelId: "grok-video",
-        provider: "airforce",
-        alpha: true,
-        cost: [
-            {
-                date: new Date("2026-02-07").getTime(),
-                completionVideoSeconds: 0.0025, // $0.0025 per second
-            },
-        ],
-        description: "Grok Video (api.airforce) - xAI video gen",
-        inputModalities: ["text", "image"],
-        outputModalities: ["video"],
-    },
-    "ltx-2": {
-        aliases: ["ltx2", "ltxvideo", "ltx-video"],
-        modelId: "ltx-2",
-        provider: "modal",
+    "p-image-edit": {
+        aliases: ["pruna-edit", "pruna-image-edit"],
+        modelId: "p-image-edit",
+        provider: "pruna",
         paidOnly: true,
         cost: [
-            // LTX-2 on Modal H200 GPU
-            // Replicate's price (~$0.08/8s = $0.01/s)
-            // $0.05 per 5-second video
             {
-                date: new Date("2026-02-03").getTime(), // Launch date
-                completionVideoSeconds: 0.01, // $0.01/sec (Replicate's rate)
+                date: new Date("2026-03-13").getTime(),
+                completionImageTokens: 0.01, // $0.01 per image
+            },
+        ],
+        description: "Pruna p-image-edit - Image-to-image editing",
+        inputModalities: ["text", "image"],
+        outputModalities: ["image"],
+    },
+    "p-video": {
+        aliases: ["pruna-video"],
+        modelId: "p-video",
+        provider: "pruna",
+        paidOnly: true,
+        cost: [
+            {
+                date: new Date("2026-03-13").getTime(),
+                completionVideoSeconds: 0.024, // $0.12 per run / 5s default = $0.024/sec
             },
         ],
         description:
-            "LTX-2 - Fast text-to-video generation with audio on Modal",
-        inputModalities: ["text"],
+            "Pruna p-video - Text/image-to-video generation (up to 1080p)",
+        inputModalities: ["text", "image"],
         outputModalities: ["video"],
     },
 } as const satisfies Record<string, ServiceDefinition<string>>;
