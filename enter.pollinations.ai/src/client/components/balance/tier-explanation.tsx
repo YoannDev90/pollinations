@@ -16,7 +16,7 @@ const COLOR_TO_CLASSES: Record<string, { bg: string; ring: string }> = {
 
 const SeedTooltipContent = () => (
     <div className="w-72">
-        <p className="font-semibold text-gray-900 mb-2">Dev Points (need 8+)</p>
+        <p className="font-semibold text-gray-900 mb-2">Dev Points (need 7+)</p>
         <table className="w-full text-left text-[11px]">
             <tbody>
                 <tr className="border-b border-gray-100">
@@ -32,7 +32,7 @@ const SeedTooltipContent = () => (
                         Public commits (last 90 days)
                     </td>
                     <td className="py-1 text-right text-gray-800 whitespace-nowrap">
-                        0.1pt each (max 2)
+                        0.1pt each (max 3)
                     </td>
                 </tr>
                 <tr className="border-b border-gray-100">
@@ -105,7 +105,7 @@ export const TierExplanation: FC<{ currentTier?: TierStatus }> = ({
                         <p className="text-xs text-gray-500">
                             <Tooltip content={<SeedTooltipContent />}>
                                 <span className="underline decoration-dotted cursor-help">
-                                    8+ dev points
+                                    7+ dev points
                                 </span>
                             </Tooltip>
                         </p>
@@ -126,7 +126,7 @@ export const TierExplanation: FC<{ currentTier?: TierStatus }> = ({
                         </strong>
                     </div>
                     <p className="text-xs font-mono text-gray-600 mt-1">
-                        {TIER_POLLEN.flower} pollen/day
+                        {TIER_POLLEN.flower} pollen/hour
                     </p>
                     <div className="mt-1.5 border-t border-gray-200 pt-1.5">
                         <p className={requirementLabelStyle}>To unlock</p>
@@ -155,7 +155,7 @@ export const TierExplanation: FC<{ currentTier?: TierStatus }> = ({
                         </strong>
                     </div>
                     <p className="text-xs font-mono text-gray-600 mt-1">
-                        {TIER_POLLEN.nectar} pollen/day
+                        {TIER_POLLEN.nectar} pollen/hour
                     </p>
                     <div className="mt-1.5 border-t border-gray-200 pt-1.5">
                         <span className="text-[10px] text-purple-600 bg-purple-100 px-1.5 py-0.5 rounded-full font-medium">
