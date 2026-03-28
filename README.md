@@ -20,16 +20,16 @@
 
 | Name | Description | Author |
 |------|-------------|--------|
+| [💬 vicharlok](https://www.vicharlok.com/) | VicharLok is a community feed product: users browse and interact around posts grouped by topic communities (for example india, world, politics, entertainment, tech, business, sports). The experience i | [@web](https://github.com/web) |
+| [🎨 AI-Image-Generator](https://main.ai-image-generator-5li.pages.dev/) | Generate images with AI-Image-Generator using a Cloudflare Workers backend and React frontend, with deterministic seed generation and rate limiting. | [@web](https://github.com/web) |
+| [📝 URL to Markdown](https://pollinations-url-text.vercel.app/) | Convert any webpage to clean Markdown using AI. | [@web](https://github.com/web) |
+| [🤖 FlowAI Bot](201248601) | Automates workflows and collaboration using FlowAI Bot, built in TypeScript and integrating the pollinations.ai API to process dynamic content for data enrichment and creative automation. | [@library](https://github.com/library) |
 | [🤖 visiona](https://visiona-wheat.vercel.app/) | Delivers intelligent, interactive web experiences via an AI-powered responsive interface; visiona demonstrates AI integration into web tools for real-time user interaction. | [@web](https://github.com/web) |
 | [🤖 Apiction](https://apiction.site/) | Talk to any AI model from any provider, including Pollinations, using Apiction. | [@web](https://github.com/web) |
 | [🎬 Storymake](https://storymake.io) | Generate studio-quality short-form videos (TikToks, Reels, and YouTube Shorts) from a simple text prompt using Storymake, an AI-powered automated video creation platform. | [@web](https://github.com/web) |
 | [💬 Tofu](https://crates.io/crates/tofu-llm) | Tofu provides a rich AI chat client for the terminal with a formatted interface to make communicating with LLMs quick and easy. | [@cli](https://github.com/cli) |
 | [🌐 TranslateIt](https://connor.ct.ws/translateit) | Translate text with TranslateIt, using AI to generate translations based on sentence context. | [@web](https://github.com/web) |
 | [🛠️ opencode-pollinations-conf](194648035) | Generate an opencode.json configuration file using opencode-pollinations-conf, populated with text models from Pollinations.aihttpsenter.pollinations | [@cli](https://github.com/cli) |
-| [🌸 OrchidLLM](https://orchidllm.vercel.app) | Generate images, text, video, audio, and transcriptions with OrchidLLM. | [@web](https://github.com/web) |
-| [🤖 Vector AI Agent](https://routinehub.co/shortcut/24957/) | Vector AI Agent handles multitasking AI requests using pollinations with multiple models, implemented entirely in apple shortcuts by Mincoffical and Elc29 and free to use. | [@ios](https://github.com/ios) |
-| [🧮 excelformula.pro](https://excelformula.pro/) | Generate Excel formulas from natural language or sample data using excelformula.pro, returning ready-to-use formulas with cell references and brief explanations. | [@web](https://github.com/web) |
-| [⚡ PollinationsAiPS](1894723) | Integrate Pollinations.ai into PowerShell using PollinationsAiPS to generate images, text, and audio from scripts. | [@cli](https://github.com/cli) |
 
 [Browse all apps →](apps/GREENHOUSE.md)
 ## 🚀 New Unified API — Now Live
